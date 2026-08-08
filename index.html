@@ -29,7 +29,7 @@
 
         * {
             box-sizing: border-box;
-            touch-action: manipulation; /* Убирает задержку и фантомные клики */
+            touch-action: manipulation;
         }
 
         body {
@@ -170,7 +170,7 @@
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            pointer-events: none !important; /* Убирает перехват событий клика картинкой */
+            pointer-events: none !important;
         }
 
         img {
@@ -336,13 +336,26 @@
         let board = null;
         let game = new Chess();
         let selectedSquare = null;
-        let isThinking = false; // Флаг работы бота
+        let isThinking = false;
         let $status = $('#status');
 
         let whiteTime = 600;
         let blackTime = 600;
         let timerInterval = null;
         let gameStarted = false;
+
+        // Инициализация фонового потока (Web Worker) для бота
+        let botWorker = new Worker('botWorker.js');
+
+        botWorker.onmessage = function (e) {
+            let bestMove = e.data;
+            if (bestMove) {
+                game.move(bestMove);
+                board.position(game.fen());
+                updateStatus();
+            }
+            isThinking = false;
+        };
 
         function formatTime(seconds) {
             let min = Math.floor(seconds / 60);
@@ -453,87 +466,12 @@
 
                 if (isBotMode && !game.game_over()) {
                     isThinking = true;
-                    // Асинхронный вызов бота, чтобы не блокировать интерфейс
-                    setTimeout(() => {
-                        makeBotMove();
-                        isThinking = false;
-                    }, 150);
+                    botWorker.postMessage({ fen: game.fen() });
                 }
             }
         }
 
-        const pieceValues = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
-
-        function evaluateBoard(boardState) {
-            let totalEvaluation = 0;
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    let piece = boardState[r][c];
-                    if (piece) {
-                        let val = pieceValues[piece.type];
-                        totalEvaluation += piece.color === 'w' ? val : -val;
-                    }
-                }
-            }
-            return totalEvaluation;
-        }
-
-        function minimax(gameObj, depth, alpha, beta, isMaximizing) {
-            if (depth === 0 || gameObj.game_over()) {
-                return evaluateBoard(gameObj.board());
-            }
-
-            let moves = gameObj.moves();
-            if (isMaximizing) {
-                let maxEval = -9999;
-                for (let i = 0; i < moves.length; i++) {
-                    gameObj.move(moves[i]);
-                    let evaluation = minimax(gameObj, depth - 1, alpha, beta, false);
-                    gameObj.undo();
-                    maxEval = Math.max(maxEval, evaluation);
-                    alpha = Math.max(alpha, evaluation);
-                    if (beta <= alpha) break;
-                }
-                return maxEval;
-            } else {
-                let minEval = 9999;
-                for (let i = 0; i < moves.length; i++) {
-                    gameObj.move(moves[i]);
-                    let evaluation = minimax(gameObj, depth - 1, alpha, beta, true);
-                    gameObj.undo();
-                    minEval = Math.min(minEval, evaluation);
-                    beta = Math.min(beta, evaluation);
-                    if (beta <= alpha) break;
-                }
-                return minEval;
-            }
-        }
-
-        function makeBotMove() {
-            let moves = game.moves();
-            if (moves.length === 0) return;
-
-            let bestMove = null;
-            let bestValue = 9999;
-
-            for (let i = 0; i < moves.length; i++) {
-                game.move(moves[i]);
-                let boardValue = minimax(game, 2, -10000, 10000, true);
-                game.undo();
-                if (boardValue < bestValue) {
-                    bestValue = boardValue;
-                    bestMove = moves[i];
-                }
-            }
-
-            if (bestMove) {
-                game.move(bestMove);
-                board.position(game.fen());
-                updateStatus();
-            }
-        }
-
-        function updateStatus () {
+        function updateStatus() {
             let status = '';
             let moveColor = game.turn() === 'w' ? 'Белых' : 'Черных';
 
@@ -570,7 +508,6 @@
         board = Chessboard('myBoard', config);
         updateStatus();
 
-        // Обработка клика без лагов
         $('#myBoard').on('pointerdown', '.square-55d63', function (e) {
             e.preventDefault();
             let square = $(this).attr('data-square');
