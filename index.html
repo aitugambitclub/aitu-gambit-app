@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AITU Gambit</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- jQuery & Chessboard.js CSS/JS -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    
+    <!-- Chess.js (Правила шахмат) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #262421;
+            --card-bg: #312e2b;
+            --text-main: #ffffff;
+            --text-secondary: #989795;
+            --board-light: #eeeed2;
+            --board-dark: #769656;
+            --accent-green: #81b64c;
+            --accent-hover: #a3d168;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 380px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Шапка приложения */
+        .app-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            margin-bottom: 8px;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Карточка игрока в стиле Chess.com */
+        .player-card {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin: 4px 0;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            background: #403d39;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: var(--accent-green);
+        }
+
+        .player-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .player-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .player-rating {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .timer {
+            background: #21201d;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .timer.active {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        /* Стилизация доски под Chess.com */
+        #myBoard {
+            width: 100%;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .white-1e1d7 {
+            background-color: var(--board-light) !important;
+            color: var(--board-dark) !important;
+        }
+
+        .black-3c85d {
+            background-color: var(--board-dark) !important;
+            color: var(--board-light) !important;
+        }
+
+        /* Статус игры */
+        .game-status {
+            margin: 10px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-align: center;
+        }
+
+        /* Кнопки управления */
+        .controls {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            box-shadow: 0 4px 0 #588231;
+        }
+
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #588231;
+        }
+
+        .btn-secondary {
+            background-color: #363431;
+            box-shadow: 0 4px 0 #21201e;
+        }
+
+        .btn-secondary:active {
+            box-shadow: 0 2px 0 #21201e;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Шапка -->
+        <div class="app-header">
+            <div class="app-title">♟ AITU Gambit</div>
+        </div>
+
+        <!-- Игрок 2 (Соперник / Черные) -->
+        <div class="player-card">
+            <div class="player-info">
+                <div class="avatar">B</div>
+                <div class="player-details">
+                    <span class="player-name">Соперник</span>
+                    <span class="player-rating">1200 ELO</span>
+                </div>
+            </div>
+            <div class="timer" id="blackTimer">10:00</div>
+        </div>
+
+        <!-- Доска -->
+        <div id="myBoard"></div>
+
+        <!-- Игрок 1 (Вы / Белые) -->
+        <div class="player-card">
+            <div class="player-info">
+                <div class="avatar" id="myAvatar">W</div>
+                <div class="player-details">
+                    <span class="player-name" id="myName">Вы</span>
+                    <span class="player-rating">1200 ELO</span>
+                </div>
+            </div>
+            <div class="timer active" id="whiteTimer">10:00</div>
+        </div>
+
+        <!-- Статус -->
+        <div class="game-status" id="status">Ход белых</div>
+
+        <!-- Кнопки -->
+        <div class="controls">
+            <button class="btn btn-secondary" id="flipBtn">🔄 Перевернуть</button>
+            <button class="btn" id="startBtn">Новая игра</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Подгружаем имя пользователя из Telegram
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            const user = tg.initDataUnsafe.user;
+            document.getElementById('myName').innerText = user.first_name;
+            document.getElementById('myAvatar').innerText = user.first_name.charAt(0).toUpperCase();
+        }
+
+        let board = null;
+        let game = new Chess();
+        let $status = $('#status');
+
+        function onDragStart (source, piece, position, orientation) {
+            if (game.game_over()) return false;
+
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop (source, target) {
+            let move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            updateStatus();
+        }
+
+        function onSnapEnd () {
+            board.position(game.fen());
+        }
+
+        function updateStatus () {
+            let status = '';
+            let moveColor = game.turn() === 'w' ? 'Белых' : 'Черных';
+
+            if (game.turn() === 'w') {
+                $('#whiteTimer').addClass('active');
+                $('#blackTimer').removeClass('active');
+            } else {
+                $('#blackTimer').addClass('active');
+                $('#whiteTimer').removeClass('active');
+            }
+
+            if (game.in_checkmate()) {
+                status = 'Мат! Победили ' + (game.turn() === 'w' ? 'Черные' : 'Белые');
+            } else if (game.in_draw()) {
+                status = 'Ничья!';
+            } else {
+                status = 'Ход ' + moveColor;
+                if (game.in_check()) {
+                    status += ' (Шах!)';
+                }
+            }
+
+            $status.html(status);
+        }
+
+        let config = {
+            draggable: true,
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd
+        };
+
+        board = Chessboard('myBoard', config);
+        updateStatus();
+
+        $('#startBtn').on('click', function() {
+            game.reset();
+            board.start();
+            updateStatus();
+        });
+
+        $('#flipBtn').on('click', function() {
+            board.flip();
+        });
+    </script>
+</body>
+</html>
