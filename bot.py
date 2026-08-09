@@ -156,11 +156,17 @@ async def got_code(message: Message, state: FSMContext, db) -> None:
 
 
 async def main() -> None:
-    # TODO: подключить asyncpg pool и прокидывать db в хендлеры через middleware
+    import asyncpg
+
+    db_pool = await asyncpg.create_pool(os.environ["DATABASE_URL"])
+
     bot = Bot(BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot, db=db_pool)  # db прокидывается во все хендлеры как аргумент
+    finally:
+        await db_pool.close()
 
 
 if __name__ == "__main__":
